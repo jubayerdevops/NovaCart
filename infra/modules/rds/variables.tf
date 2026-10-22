@@ -16,7 +16,7 @@ variable "db_sg_id" {
 variable "engine_version" {
   description = "MySQL major version."
   type        = string
-  default     = "8.0"
+  default     = "8.4"
 }
 
 variable "instance_class" {
