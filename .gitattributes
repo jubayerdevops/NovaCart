@@ -1,0 +1,13 @@
+# Let Git normalise line endings for text files
+* text=auto
+
+# Files that must always use Linux (LF) line endings
+*.sh   text eol=lf
+*.tf   text eol=lf
+*.hcl  text eol=lf
+*.tftpl text eol=lf
+
+# Binary files: never touch
+*.png binary
+*.jpg binary
+*.pdf binary

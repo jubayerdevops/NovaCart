@@ -1,18 +1,86 @@
-# Terraform plugin cache
+# ================================================================
+# Terraform
+# ================================================================
+# Plugin cache (re-downloaded by `terraform init`)
 .terraform/
 
 # State files: never commit (can contain secrets)
 *.tfstate
 *.tfstate.*
+.terraform.tfstate.lock.info
 
 # Variable files may hold personal values; commit only examples
 *.tfvars
+*.tfvars.json
 !*.tfvars.example
+# dev/prod tfvars hold no secrets and are an M06 deliverable
+!dev.tfvars
+!prod.tfvars
 
 # Saved plans and crash logs
 *.tfplan
+tfplan
 crash.log
+crash.*.log
 
+# Local overrides and CLI config
+override.tf
+override.tf.json
+*_override.tf
+*_override.tf.json
+.terraformrc
+terraform.rc
+
+# NOTE: .terraform.lock.hcl is intentionally NOT ignored — commit it.
+
+# ================================================================
+# Packer (golden AMI)
+# ================================================================
+packer_cache/
+*.pkrvars.hcl
+!*.pkrvars.hcl.example
+manifest.json
+
+# ================================================================
+# Python / Django
+# ================================================================
+__pycache__/
+*.py[cod]
+venv/
+.venv/
+env/
+.env
+*.sqlite3
+staticfiles/
+media/
+
+# ================================================================
+# Node / React
+# ================================================================
+node_modules/
+dist/
+build/
+.env.local
+.env.*.local
+npm-debug.log*
+
+# ================================================================
+# Secrets / keys (never commit)
+# ================================================================
+*.pem
+*.key
+.aws/
+
+# ================================================================
+# Course material (repo is public)
+# ================================================================
+*CAPSTONE*.pdf
+
+# ================================================================
 # Editor / OS noise
+# ================================================================
 .vscode/
+.idea/
 .DS_Store
+Thumbs.db
+desktop.ini

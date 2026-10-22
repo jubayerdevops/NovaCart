@@ -1,0 +1,6 @@
+project_name = "your_project_name"
+environment  = "your_envronment"
+owner        = "your-name"
+aws_region   = "your_aws_region"
+aws_profile  = "your-aws-profile"
+vpc_cidr     = "your_aws_vpc_cidr"
