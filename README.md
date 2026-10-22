@@ -90,3 +90,61 @@ without overwriting existing files.
 ### M01 — `terraform init` + `terraform validate`
 
 ![M01: terraform init and validate](docs/m01-init-validate.png)
+
+## Enabling remote state
+
+State is stored in S3 so the whole team works from one shared, versioned,
+encrypted copy, and locking stops two `apply` runs at the same time.
+
+`infra/backend.tf` uses **partial backend configuration**: only the fixed
+settings (`key`, `encrypt`, `use_lockfile`) are in code. The bucket, region
+and AWS profile are supplied at `init` time, because backend blocks can't use
+variables and these values differ per person / account.
+
+1. **Create the state bucket once** with the bootstrap project:
+
+```bash
+   cd bootstrap
+   cp terraform.tfvars.example terraform.tfvars
+   terraform init && terraform apply
+```
+
+   Note the `state_bucket_name` output (`novacart-tfstate-<ACCOUNT_ID>`).
+
+2. **Create your backend config** (git-ignored):
+
+```bash
+   cd infra
+   cp backend.hcl.example backend.hcl   # set bucket, region, profile
+```
+
+3. **Initialise** (migrates any existing local state to S3):
+
+```bash
+   terraform init -migrate-state -backend-config=backend.hcl
+```
+
+Terraform stores state at
+`s3://novacart-tfstate-<ACCOUNT_ID>/terraform-3tier/dev/terraform.tfstate`
+and creates a `.tflock` file next to it while an operation runs
+(`use_lockfile = true`, Terraform >= 1.10 — no DynamoDB table required).
+
+## Network (M02)
+
+| Tier | AZ a | AZ b | Route table |
+|---|---|---|---|
+| Public (ALB, NAT, bastion) | 10.0.0.0/24 | 10.0.1.0/24 | `0.0.0.0/0 → Internet Gateway` |
+| Private (app servers) | 10.0.10.0/24 | 10.0.11.0/24 | `0.0.0.0/0 → NAT` (1 shared in dev, 1 per AZ in prod) |
+| Database (RDS) | 10.0.20.0/24 | 10.0.21.0/24 | local only — no default route |
+
+CIDRs are computed with `cidrsubnet(var.vpc_cidr, 8, n)`, so changing
+`vpc_cidr` re-plans every subnet consistently.
+
+### M02 — terraform plan
+
+![M02: terraform plan](docs/m02-plan.png)
+
+### M02 — Network diagram
+
+![M02: network diagram](docs/m02-network-diagram.svg)
+

@@ -84,3 +84,10 @@ npm-debug.log*
 .DS_Store
 Thumbs.db
 desktop.ini
+
+# ================================================================
+# Backend configuration (commit only examples)
+# ================================================================
+
+backend.hcl
+!backend.hcl.example
