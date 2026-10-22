@@ -168,3 +168,70 @@ removes AWS's default allow-all egress, so only the outbound rules above exist.
 ### M03 — DB security group allows MySQL only from the app SG
 
 ![M03: DB SG inbound rules](docs/m03-db-sg-inbound.png)
+
+## App tier — ALB & Auto Scaling (M04)
+
+```
+Internet ──HTTP 80──▶ ALB (public subnets, 2 AZs)
+                        └─ listener :80 ──▶ target group (health check GET /health → 200)
+                                              ├─▶ EC2 nginx (private subnet, AZ a)
+                                              └─▶ EC2 nginx (private subnet, AZ b)
+                                                   ▲ managed by the Auto Scaling Group
+```
+
+| Component | Configuration |
+|---|---|
+| ALB | Internet-facing, both public subnets, `drop_invalid_header_fields = true` |
+| Target group | HTTP 80, health check `/health` every 15 s (healthy 2 / unhealthy 3), deregistration delay 30 s |
+| AMI | Latest Amazon Linux 2023 via `data "aws_ami"` (no hard-coded AMI ID) |
+| Launch template | `t3.micro` (dev), **IMDSv2 required**, **encrypted gp3 root volume**, **no SSH key** |
+| IAM | Instance profile with `AmazonSSMManagedInstanceCore` → shell access via Session Manager |
+| User data | `templatefile()` renders `user_data.sh.tftpl`: installs nginx, reads hostname / AZ / instance ID from IMDSv2, serves them with the environment name |
+| Auto Scaling Group | Private subnets in both AZs, `health_check_type = "ELB"`, grace 180 s, min/desired/max from variables (dev: 1 / 2 / 2) |
+| Scaling policy | Target tracking: average CPU **50 %** |
+| Instance refresh | Rolling, `min_healthy_percentage = 50` — triggered when the launch template changes |
+
+Open the app: `terraform output alb_dns_name` → `http://<alb_dns_name>`
+
+### Chaos drill — self-healing
+
+1. Started a loop requesting the ALB every 2 s.
+2. At `<time>` terminated `i-0519bc6c1d31b64be` (ap-southeast-1b).
+3. The ALB stopped routing to it immediately; every request was served by
+   `i-0d1897a0fddae63e7` (1a) — **no downtime**.
+4. At `<time>` the ASG detected capacity below desired (1 of 2) and launched
+   `<new instance id>` in ap-southeast-1b.
+5. At `<time>` it passed health checks; the target group was back to 2 healthy
+   targets. Total recovery: about `<n>` minutes, with no manual action.
+
+### Flash-sale drill — scaling out
+
+1. Set the ASG to 1 instance (`desired = 1`).
+2. Via Session Manager ran `stress-ng --cpu 2 --timeout 600` on the instance.
+3. Average CPU rose above the 50 % target; at `<time>` the target-tracking
+   alarm fired and the ASG launched a second instance (`<instance id>`).
+4. After the load stopped, CPU fell and the ASG scaled back in to 1 instance
+   at `<time>`.
+
+
+### M04 — Web page via the ALB (two instances, two AZs)
+
+![M04: served from AZ a](docs/m04-web-az-a.png)
+
+![M04: served from AZ b](docs/m04-web-az-b.png)
+
+### M04 — Session Manager shell (no SSH keys)
+
+![M04: SSM session](docs/m04-ssm-session.png)
+
+### M04 — Chaos drill: ASG replaces a terminated instance
+
+![M04: ASG activity](docs/m04-chaos-activity.png)
+
+![M04: targets healthy again](docs/m04-chaos-healthy.png)
+
+### M04 — Flash-sale drill: ASG scales out on CPU
+
+![M04: CPU alarm](docs/m04-flash-cpu.png)
+
+![M04: scale-out activity](docs/m04-flash-activity.png)

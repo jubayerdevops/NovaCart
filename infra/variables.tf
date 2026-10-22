@@ -76,3 +76,33 @@ variable "allowed_ssh_cidr" {
   type        = string
   default     = null
 }
+
+variable "instance_type" {
+  description = "EC2 instance type for the app servers."
+  type        = string
+  default     = "t3.micro"
+}
+
+variable "asg_min_size" {
+  description = "Minimum number of app instances."
+  type        = number
+  default     = 1
+}
+
+variable "asg_max_size" {
+  description = "Maximum number of app instances."
+  type        = number
+  default     = 2
+}
+
+variable "asg_desired_capacity" {
+  description = "Number of app instances to start with."
+  type        = number
+  default     = 2
+}
+
+variable "cpu_target" {
+  description = "Target average CPU % for the scaling policy."
+  type        = number
+  default     = 50
+}

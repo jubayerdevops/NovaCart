@@ -37,3 +37,13 @@ output "security_group_ids" {
     bastion = module.security_groups.bastion_sg_id
   }
 }
+
+output "alb_dns_name" {
+  description = "Open this in a browser: http://<alb_dns_name>"
+  value       = module.alb.alb_dns_name
+}
+
+output "asg_name" {
+  description = "Auto Scaling Group name."
+  value       = module.app.asg_name
+}

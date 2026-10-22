@@ -84,3 +84,41 @@ TCP 80 → `app-sg`, so from the ALB an attacker:
 To get to the data they would first have to compromise an app server too.
 Each layer has to be broken separately — that's defence in depth.
 
+## Milestone 04 — Survive the Friday Sale
+
+### 1. What attack does IMDSv2 protect against?
+
+**Server-Side Request Forgery (SSRF).** Every EC2 instance can read its own
+metadata — including the temporary AWS credentials of its IAM role — from
+`http://169.254.169.254`. With IMDSv1 a plain `GET` was enough, so if an
+attacker could trick the web app into fetching a URL of their choice (e.g.
+an image-preview or webhook feature), they could make it request
+`/latest/meta-data/iam/security-credentials/<role>` and steal the keys.
+This is how the 2019 Capital One breach happened.
+
+IMDSv2 (`http_tokens = "required"`) first requires a `PUT` request to get a
+session token, which then has to be sent as a header on every metadata
+request. Typical SSRF bugs can only make simple `GET` requests and can't set
+custom headers, so they can no longer reach the credentials. With
+`http_put_response_hop_limit = 1`, the token also can't leave the instance
+(e.g. through a proxy or container).
+
+### 2. What happens to running instances when you change the user data and apply with instance refresh enabled?
+
+Nothing happens to them directly — user data only runs on **first boot**, so
+existing instances never re-run it. Instead:
+
+1. Terraform creates a **new version** of the launch template, and the ASG
+   points at that new version.
+2. Because the ASG has an `instance_refresh` block, Terraform starts a
+   **rolling instance refresh**.
+3. The ASG replaces instances in batches, keeping at least
+   `min_healthy_percentage` (50 %) of capacity healthy: it terminates an old
+   instance, launches a new one from the new template version (which runs the
+   new user data), waits for it to pass health checks and the
+   `instance_warmup` period, then moves on to the next.
+4. The ALB keeps routing only to healthy targets throughout, so the site
+   stays up — a zero-downtime rolling deployment.
+
+Without instance refresh, the old instances would keep running the old
+configuration until they happened to be replaced.
