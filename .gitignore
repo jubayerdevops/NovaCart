@@ -1,0 +1,18 @@
+# Terraform plugin cache
+.terraform/
+
+# State files: never commit (can contain secrets)
+*.tfstate
+*.tfstate.*
+
+# Variable files may hold personal values; commit only examples
+*.tfvars
+!*.tfvars.example
+
+# Saved plans and crash logs
+*.tfplan
+crash.log
+
+# Editor / OS noise
+.vscode/
+.DS_Store
