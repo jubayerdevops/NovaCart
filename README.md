@@ -254,3 +254,139 @@ Outputs: `db_endpoint`, `db_secret_arn` (the ARN — never the password), `asset
 ### M05 — Plain-HTTP request to S3 denied
 
 ![M05: S3 HTTP denied](docs/m05-s3-http-denied.png)
+
+## Environments (M06)
+
+One codebase, two environments. Differences live only in `dev.tfvars` / `prod.tfvars`:
+
+| Setting | dev | prod |
+|---|---|---|
+| NAT Gateways | 1 (shared) | 1 per AZ (2) |
+| App instance type | t3.micro | t3.small |
+| ASG min / desired / max | 1 / 1 / 2 | 2 / 2 / 6 |
+| RDS instance | db.t3.micro | db.t3.small |
+| RDS Multi-AZ | false | true |
+| Deletion protection | false | true |
+| Backup retention | 1 day | 7 days |
+| Final snapshot | skipped | required |
+| S3 `force_destroy` | true | false |
+| Bastion | optional (off) | disabled — use SSM |
+
+**Prod plan summary** (`terraform plan -var-file=prod.tfvars`): **52 to add**.
+Compared with dev it adds a second NAT Gateway + Elastic IP and a second
+private route pointing to it, uses larger instances, starts with 2 app
+instances (max 6), and creates RDS with Multi-AZ, deletion protection,
+7-day backups and a final snapshot on delete.
+
+### Separate state per environment
+
+Each environment has its own state file in the same encrypted, locked bucket:
+
+```
+s3://novacart-tfstate-<ACCOUNT_ID>/terraform-3tier/dev/terraform.tfstate
+s3://novacart-tfstate-<ACCOUNT_ID>/terraform-3tier/prod/terraform.tfstate
+```
+
+The `key` is supplied at init time from `dev.backend.hcl` / `prod.backend.hcl`.
+**Why separate keys instead of workspaces:** the environment is chosen
+explicitly on every `init` and `plan` (`-backend-config` + `-var-file`), so it
+is visible in the command and in CI logs. With workspaces the active
+environment is hidden state on your machine — easy to forget and apply dev
+changes to prod. Separate keys can also be given different IAM permissions.
+
+## How to deploy
+
+```bash
+# 0. one-time: bootstrap the state bucket (see bootstrap/README.md)
+
+cd infra
+cp backend.hcl.example backend.hcl            # bucket, region, profile
+cp terraform.tfvars.example terraform.tfvars  # owner, aws_profile
+
+# dev
+terraform init -reconfigure -backend-config=backend.hcl -backend-config=dev.backend.hcl
+terraform plan  -var-file=dev.tfvars
+terraform apply -var-file=dev.tfvars
+
+# prod
+terraform init -reconfigure -backend-config=backend.hcl -backend-config=prod.backend.hcl
+terraform plan  -var-file=prod.tfvars
+terraform apply -var-file=prod.tfvars
+```
+
+Open the site: `http://$(terraform output -raw alb_dns_name)`
+Shell on an instance: EC2 → instance → Connect → Session Manager (no SSH keys).
+
+## Variables
+
+| Variable | Default | Description |
+|---|---|---|
+| `project_name` | `novacart` | Name prefix (validated: lowercase, 2–21 chars) |
+| `environment` | — (required) | `dev` or `prod` (validated) |
+| `owner` | — (required) | Owner tag |
+| `aws_region` | `ap-southeast-1` | Region |
+| `aws_profile` | `null` | Local AWS CLI profile; unset in CI |
+| `vpc_cidr` | `10.0.0.0/16` | VPC CIDR (validated) |
+| `az_count` | `2` | Availability Zones |
+| `single_nat_gateway` | `true` | One shared NAT (dev) vs one per AZ (prod) |
+| `enable_https` | `false` | Open 443 on the ALB |
+| `enable_bastion` | `false` | Create the bastion host |
+| `allowed_ssh_cidr` | `null` | Your IP /32 for bastion SSH |
+| `bastion_key_name` | `null` | EC2 key pair for the bastion |
+| `instance_type` | `t3.micro` | App instance type |
+| `asg_min_size` / `asg_desired_capacity` / `asg_max_size` | `1` / `2` / `2` | ASG sizes |
+| `cpu_target` | `50` | Target average CPU % |
+| `db_instance_class` | `db.t3.micro` | RDS size |
+| `db_multi_az` | `false` | RDS standby in a second AZ |
+| `db_deletion_protection` | `false` | Block DB deletion |
+| `db_backup_retention_period` | `1` | Backup days |
+| `db_skip_final_snapshot` | `true` | Skip final snapshot on delete |
+
+## Outputs
+
+| Output | Description |
+|---|---|
+| `alb_dns_name` | Public URL of the app |
+| `vpc_id`, `public_subnet_ids`, `private_subnet_ids`, `database_subnet_ids` | Network |
+| `security_group_ids` | SG ID per tier |
+| `asg_name` | Auto Scaling Group |
+| `db_endpoint` | RDS hostname |
+| `db_secret_arn` | Secrets Manager ARN of the DB credentials (never the password) |
+| `assets_bucket_name` | S3 assets bucket |
+| `bastion_public_ip` | Bastion IP (null when disabled) |
+
+## Cost estimate (ap-southeast-1, on-demand, approximate)
+
+| Resource | dev / month | prod / month |
+|---|---|---|
+| NAT Gateway (+ Elastic IP) | 1 × ~$47 | 2 × ~$47 |
+| ALB | ~$20 | ~$25 |
+| EC2 app instances | 1–2 × t3.micro ≈ $10–20 | 2–6 × t3.small ≈ $40–115 |
+| RDS MySQL | db.t3.micro ≈ $20 | db.t3.small Multi-AZ ≈ $80 |
+| Storage, Secrets Manager, S3, CloudWatch | ~$5 | ~$10 |
+| **Total** | **≈ $100–110 (≈ $3.5/day)** | **≈ $250–330** |
+
+Prices are approximate and exclude data transfer; check the AWS Pricing
+Calculator for exact numbers. **Destroy dev after every session.**
+
+## Teardown
+
+```bash
+cd infra
+terraform init -reconfigure -backend-config=backend.hcl -backend-config=dev.backend.hcl
+terraform destroy -var-file=dev.tfvars
+```
+
+- dev: RDS has no deletion protection and skips the final snapshot; the S3
+  bucket is emptied automatically (`force_destroy`).
+- prod: set `db_deletion_protection = false` and apply first; a final RDS
+  snapshot is kept; empty the S3 bucket manually.
+- **Never destroy `bootstrap/`** while any environment still has state in it.
+
+### M06 — Prod plan
+
+![M06: prod plan](docs/m06-prod-plan.png)
+
+### M06 — terraform destroy (dev)
+
+![M06: destroy](docs/m06-destroy.png)

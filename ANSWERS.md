@@ -152,3 +152,36 @@ about 1–2 minutes; the endpoint DNS name stays the same.
   cross-region read replicas or snapshot copies).
 - **Scaling reads** — the standby can't serve traffic (read replicas do).
 - **Security incidents** — stolen credentials or a compromised app reach both.
+
+## Milestone 06 — Launch Day
+
+### 1. Workspaces vs separate state keys/directories — which would you use for real production and why?
+
+**Separate state keys (or directories), not workspaces.** With workspaces,
+the active environment is invisible state on the engineer's machine
+(`terraform workspace select`); one forgotten switch and a dev change is
+applied to prod. All workspaces also share the same backend and credentials,
+so you can't give prod stricter access.
+
+Separate keys make the environment explicit in every command
+(`-backend-config=prod.backend.hcl -var-file=prod.tfvars`), visible in CI
+logs and code review, and each state path can have its own IAM policy (CI
+can plan prod, only a release role can apply it). For real production I'd go
+further: separate AWS accounts per environment, each with its own state
+bucket. HashiCorp itself recommends against workspaces for environments that
+need different credentials or access controls.
+
+### 2. Which three resources drive most of the cost, and how would you reduce them?
+
+1. **NAT Gateways** (~$47/month each, plus $0.059/GB processed — two in prod).
+   Reduce: one shared NAT in dev; add free **S3 / DynamoDB gateway VPC
+   endpoints** and interface endpoints for SSM / Secrets Manager so that
+   traffic skips the NAT; in non-prod, destroy outside working hours.
+2. **RDS** (Multi-AZ doubles the price; extended support for old engine
+   versions adds even more). Reduce: Multi-AZ only in prod, smallest
+   instance in dev, current engine version (8.4 — avoids 8.0 extended
+   support), Reserved Instances for prod, stop/destroy dev databases at night.
+3. **EC2 app fleet + ALB.** Reduce: right-size with CloudWatch data,
+   Graviton (`t4g`, ~20 % cheaper), Savings Plans for the prod baseline, Spot
+   for extra scale-out capacity, scheduled scaling to min outside business
+   hours, and the target-tracking policy already scales in when idle.

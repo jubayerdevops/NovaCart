@@ -62,3 +62,8 @@ output "assets_bucket_name" {
   description = "S3 bucket for product images."
   value       = module.s3.bucket_name
 }
+
+output "bastion_public_ip" {
+  description = "Bastion public IP (null when disabled)."
+  value       = one(module.bastion[*].public_ip)
+}

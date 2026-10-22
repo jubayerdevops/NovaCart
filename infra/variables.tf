@@ -137,3 +137,9 @@ variable "db_skip_final_snapshot" {
   type        = bool
   default     = true
 }
+
+variable "bastion_key_name" {
+  description = "EC2 key pair for the bastion (only used when enable_bastion = true)."
+  type        = string
+  default     = null
+}

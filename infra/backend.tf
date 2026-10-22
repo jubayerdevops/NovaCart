@@ -11,8 +11,8 @@
 
 terraform {
   backend "s3" {
-    bucket       = "novacart-tfstate-063570950337"
-    key          = "terraform-3tier/dev/terraform.tfstate"
+    bucket = "novacart-tfstate-063570950337"
+    # key          = "terraform-3tier/dev/terraform.tfstate"
     region       = "ap-southeast-1"
     profile      = var.aws_profile
     encrypt      = true

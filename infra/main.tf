@@ -76,3 +76,14 @@ module "s3" {
   name_prefix   = local.name_prefix
   force_destroy = var.environment == "dev"
 }
+
+# ---------------------------------------------------------------- M06: Bastion (optional)
+module "bastion" {
+  source = "./modules/bastion"
+  count  = var.enable_bastion ? 1 : 0
+
+  name_prefix      = local.name_prefix
+  public_subnet_id = module.vpc.public_subnet_ids[0]
+  bastion_sg_id    = module.security_groups.bastion_sg_id
+  key_name         = var.bastion_key_name
+}
