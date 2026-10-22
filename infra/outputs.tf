@@ -47,3 +47,18 @@ output "asg_name" {
   description = "Auto Scaling Group name."
   value       = module.app.asg_name
 }
+
+output "db_endpoint" {
+  description = "RDS MySQL hostname."
+  value       = module.rds.db_endpoint
+}
+
+output "db_secret_arn" {
+  description = "Secrets Manager ARN for the DB master credentials (not the password)."
+  value       = module.rds.db_secret_arn
+}
+
+output "assets_bucket_name" {
+  description = "S3 bucket for product images."
+  value       = module.s3.bucket_name
+}

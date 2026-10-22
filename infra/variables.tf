@@ -106,3 +106,34 @@ variable "cpu_target" {
   type        = number
   default     = 50
 }
+
+# ---------------------------------------------------------------- Database
+variable "db_instance_class" {
+  description = "RDS instance size."
+  type        = string
+  default     = "db.t3.micro"
+}
+
+variable "db_multi_az" {
+  description = "Run a standby DB in a second AZ (prod)."
+  type        = bool
+  default     = false
+}
+
+variable "db_deletion_protection" {
+  description = "Block deletion of the database (prod)."
+  type        = bool
+  default     = false
+}
+
+variable "db_backup_retention_period" {
+  description = "Days to keep automated backups."
+  type        = number
+  default     = 1
+}
+
+variable "db_skip_final_snapshot" {
+  description = "Skip the final snapshot on delete (dev = true, prod = false)."
+  type        = bool
+  default     = true
+}

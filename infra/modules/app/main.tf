@@ -37,6 +37,21 @@ resource "aws_iam_role_policy_attachment" "ssm" {
   policy_arn = "arn:aws:iam::aws:policy/AmazonSSMManagedInstanceCore"
 }
 
+# Allow the app to read ONLY the database credentials secret
+data "aws_iam_policy_document" "read_db_secret" {
+  statement {
+    sid       = "ReadDbSecret"
+    actions   = ["secretsmanager:GetSecretValue", "secretsmanager:DescribeSecret"]
+    resources = [var.db_secret_arn]
+  }
+}
+
+resource "aws_iam_role_policy" "read_db_secret" {
+  name   = "read-db-secret"
+  role   = aws_iam_role.app.id
+  policy = data.aws_iam_policy_document.read_db_secret.json
+}
+
 resource "aws_iam_instance_profile" "app" {
   name = "${var.name_prefix}-app-profile"
   role = aws_iam_role.app.name

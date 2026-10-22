@@ -122,3 +122,33 @@ existing instances never re-run it. Instead:
 
 Without instance refresh, the old instances would keep running the old
 configuration until they happened to be replaced.
+
+## Milestone 05 — Guard the Crown Jewels
+
+### 1. Why is it better to let RDS manage the password in Secrets Manager than to pass it as a Terraform variable?
+
+A password passed as a variable — even `sensitive = true` — is stored in
+**plain text in the Terraform state file**, and often also in tfvars files,
+CI logs or shell history. Anyone who can read the state bucket can read it.
+
+With `manage_master_user_password = true`, RDS generates the password itself
+and stores it in Secrets Manager. Terraform only ever sees the secret's ARN.
+The password is encrypted with KMS, access is controlled by IAM (only the app
+role can read this one secret), every read is logged in CloudTrail, and RDS
+can rotate it automatically without any code change or redeploy.
+
+### 2. What does Multi-AZ protect against, and what does it NOT protect against?
+
+**Protects against:** failure of the primary DB instance or its whole
+Availability Zone (hardware, power, network) and planned maintenance. RDS
+keeps a synchronous standby in a second AZ and fails over automatically in
+about 1–2 minutes; the endpoint DNS name stays the same.
+
+**Does NOT protect against:**
+- **Bad data** — accidental `DELETE`/`DROP`, application bugs or corruption
+  are replicated to the standby instantly. You need backups / point-in-time
+  restore for that.
+- **Region-wide outages** — both copies are in the same region (needs
+  cross-region read replicas or snapshot copies).
+- **Scaling reads** — the standby can't serve traffic (read replicas do).
+- **Security incidents** — stolen credentials or a compromised app reach both.

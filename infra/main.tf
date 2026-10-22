@@ -51,4 +51,28 @@ module "app" {
   max_size         = var.asg_max_size
   desired_capacity = var.asg_desired_capacity
   cpu_target       = var.cpu_target
+
+  db_secret_arn = module.rds.db_secret_arn
+}
+
+# ---------------------------------------------------------------- M05: Database
+module "rds" {
+  source = "./modules/rds"
+
+  name_prefix         = local.name_prefix
+  database_subnet_ids = module.vpc.database_subnet_ids
+  db_sg_id            = module.security_groups.db_sg_id
+  instance_class      = var.db_instance_class
+
+  multi_az                = var.db_multi_az
+  deletion_protection     = var.db_deletion_protection
+  backup_retention_period = var.db_backup_retention_period
+  skip_final_snapshot     = var.db_skip_final_snapshot
+}
+
+module "s3" {
+  source = "./modules/s3"
+
+  name_prefix   = local.name_prefix
+  force_destroy = var.environment == "dev"
 }

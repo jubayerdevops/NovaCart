@@ -61,3 +61,8 @@ variable "health_check_grace_period" {
   type        = number
   default     = 180
 }
+
+variable "db_secret_arn" {
+  description = "ARN of the DB credentials secret the app may read."
+  type        = string
+}
