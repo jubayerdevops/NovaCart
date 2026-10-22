@@ -13,3 +13,14 @@ module "vpc" {
   az_count           = var.az_count
   single_nat_gateway = var.single_nat_gateway
 }
+
+# ---------------------------------------------------------------- M03: Security groups
+module "security_groups" {
+  source = "./modules/security_groups"
+
+  name_prefix      = local.name_prefix
+  vpc_id           = module.vpc.vpc_id
+  enable_https     = var.enable_https
+  enable_bastion   = var.enable_bastion
+  allowed_ssh_cidr = var.allowed_ssh_cidr
+}

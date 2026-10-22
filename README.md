@@ -148,3 +148,23 @@ CIDRs are computed with `cidrsubnet(var.vpc_cidr, 8, n)`, so changing
 
 ![M02: network diagram](docs/m02-network-diagram.svg)
 
+## Security groups (M03)
+
+Each tier trusts only the tier directly in front of it. Tier-to-tier rules
+reference **security group IDs**, never CIDR ranges.
+
+
+| Security group | Inbound | Outbound |
+|---|---|---|
+| `alb-sg` | TCP 80 from `0.0.0.0/0`<br>TCP 443 from `0.0.0.0/0` *(only if `enable_https`)* | TCP 80 → `app-sg` |
+| `app-sg` | TCP 80 from `alb-sg`<br>TCP 22 from `bastion-sg` *(only if `enable_bastion`)* | TCP 443 → `0.0.0.0/0` (via NAT: SSM, Secrets Manager, repos)<br>TCP 80 → `0.0.0.0/0` (via NAT: package repos)<br>TCP 3306 → `db-sg` |
+| `db-sg` | TCP 3306 from `app-sg` | *none* |
+| `bastion-sg` *(optional)* | TCP 22 from `allowed_ssh_cidr` (my IP /32) | TCP 22 → `app-sg` |
+
+All rules are separate `aws_vpc_security_group_ingress_rule` /
+`aws_vpc_security_group_egress_rule` resources (no inline rules). Terraform
+removes AWS's default allow-all egress, so only the outbound rules above exist.
+
+### M03 — DB security group allows MySQL only from the app SG
+
+![M03: DB SG inbound rules](docs/m03-db-sg-inbound.png)

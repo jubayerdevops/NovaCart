@@ -27,3 +27,13 @@ output "database_subnet_ids" {
   description = "Database subnet IDs."
   value       = module.vpc.database_subnet_ids
 }
+
+output "security_group_ids" {
+  description = "Security group IDs per tier."
+  value = {
+    alb     = module.security_groups.alb_sg_id
+    app     = module.security_groups.app_sg_id
+    db      = module.security_groups.db_sg_id
+    bastion = module.security_groups.bastion_sg_id
+  }
+}

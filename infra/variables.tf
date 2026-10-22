@@ -58,3 +58,21 @@ variable "single_nat_gateway" {
   type        = bool
   default     = true
 }
+
+variable "enable_https" {
+  description = "Open 443 on the ALB and add an HTTPS listener (bonus)."
+  type        = bool
+  default     = false
+}
+
+variable "enable_bastion" {
+  description = "Create a bastion host and its security group."
+  type        = bool
+  default     = false
+}
+
+variable "allowed_ssh_cidr" {
+  description = "Your public IP as /32 for bastion SSH. Only used when enable_bastion = true."
+  type        = string
+  default     = null
+}

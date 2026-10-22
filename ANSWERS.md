@@ -53,3 +53,34 @@ own AZ, so an AZ outage only affects that AZ — true high availability and no
 cross-AZ NAT traffic — at the cost of paying for one NAT and Elastic IP per AZ.
 
 In this project `single_nat_gateway = true` in dev and `false` in prod.
+
+## Milestone 03 — Locks on Every Door
+
+### 1. Why is referencing a security group ID safer than allowing a CIDR range?
+
+A CIDR rule trusts an **address range**, not a role. `10.0.0.0/16` would let
+*anything* in the VPC reach the database — the ALB, the bastion, NAT, any
+future server — and app servers in an Auto Scaling Group get new IPs every
+time they're replaced, so a tight CIDR would break.
+
+A security-group reference trusts **membership**: only network interfaces
+that have the app SG attached can reach port 3306. New instances launched by
+the ASG automatically get the SG and are allowed; anything else in the same
+subnet is not. The rule follows the role, not the IP, and stays least-privilege
+as the fleet scales.
+
+### 2. If the ALB is compromised, what can an attacker reach directly?
+
+Only the app servers, on port 80. The ALB SG's only outbound rule is
+TCP 80 → `app-sg`, so from the ALB an attacker:
+
+- **can** send HTTP requests to the app instances (the same as normal users)
+- **cannot** reach the database — `db-sg` accepts 3306 only from `app-sg`,
+  and the ALB has no egress on 3306
+- **cannot** SSH anywhere — no port 22 egress, and the app tier accepts 22
+  only from the bastion SG
+- **cannot** reach the internet or other services — no other egress rules
+
+To get to the data they would first have to compromise an app server too.
+Each layer has to be broken separately — that's defence in depth.
+
