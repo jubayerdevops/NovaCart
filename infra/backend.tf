@@ -9,15 +9,16 @@
 # See README.md -> "Enabling remote state".
 # ----------------------------------------------------------------
 
-# terraform {
-#   backend "s3" {
-#     bucket       = "novacart-tfstate-<ACCOUNT_ID>"
-#     key          = "terraform-3tier/dev/terraform.tfstate"
-#     region       = "ap-southeast-1"
-#     encrypt      = true # server-side encryption of the state file
-#     use_lockfile = true # S3-native locking (Terraform >= 1.10)
-#
-#     # Legacy alternative to use_lockfile (deprecated):
-#     # dynamodb_table = "novacart-tf-lock"
-#   }
-# }
+terraform {
+  backend "s3" {
+    bucket       = "novacart-tfstate-063570950337"
+    key          = "terraform-3tier/dev/terraform.tfstate"
+    region       = "ap-southeast-1"
+    profile      = var.aws_profile
+    encrypt      = true
+    use_lockfile = true
+
+    # Legacy alternative to use_lockfile (deprecated):
+    # dynamodb_table = "novacart-tf-lock
+  }
+}

@@ -46,3 +46,15 @@ variable "vpc_cidr" {
     error_message = "vpc_cidr must be a valid IPv4 CIDR block, e.g. 10.0.0.0/16."
   }
 }
+
+variable "az_count" {
+  description = "Number of Availability Zones to use."
+  type        = number
+  default     = 2
+}
+
+variable "single_nat_gateway" {
+  description = "true = one shared NAT Gateway (dev). false = one NAT per AZ (prod)."
+  type        = bool
+  default     = true
+}

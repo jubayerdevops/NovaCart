@@ -1,0 +1,4 @@
+# Copy to backend.hcl and fill in. Then: terraform init -backend-config=backend.hcl
+bucket  = "novacart-tfstate-<ACCOUNT_ID>"
+region  = "ap-southeast-1"
+profile = "<your-aws-profile>"
